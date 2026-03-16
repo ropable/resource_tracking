@@ -15,5 +15,5 @@ accesslog = None
 # asgi configuration
 worker_class = "asgi"
 asgi_loop = "auto"  # Uses uvloop if available
-asgi_lifespan = "auto"  # Auto-detect lifespan support
+asgi_lifespan = "off"  # Never run lifespan protocol
 control_socket = "/tmp/gunicorn.ctl"
