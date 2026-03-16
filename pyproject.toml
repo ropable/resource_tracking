@@ -1,6 +1,6 @@
 [project]
 name = "resource_tracking"
-version = "1.4.44"
+version = "1.4.45"
 description = "DBCA internal corporate application to download and serve data from remote tracking devices."
 authors = [
   { name = "Ashley Felton", email = "ashley.felton@dbca.wa.gov.au" },
@@ -35,7 +35,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ipython>=9.10.0", "ipdb>=0.13.13", "mixer>=7.2.2", "pre-commit>=4.5.1"]
+dev = ["ipython>=9.11.0", "ipdb>=0.13.13", "mixer>=7.2.2", "pre-commit>=4.5.1"]
 
 [project.urls]
 homepage = "https://github.com/dbca-wa/resource_tracking"
