@@ -11,9 +11,9 @@ timeout = 180  # Worker timeout
 graceful_timeout = 30  # Graceful shutdown timeout
 # Disable access logging.
 accesslog = None
+control_socket = "/tmp/gunicorn.ctl"
 
 # asgi configuration
 worker_class = "asgi"
 asgi_loop = "auto"  # Uses uvloop if available
 asgi_lifespan = "off"  # Never run lifespan protocol
-control_socket = "/tmp/gunicorn.ctl"
