@@ -809,6 +809,7 @@ class DeviceStream(View):
                 # The Cache-Control header need to be set thus to work behind Fastly caching.
                 "Cache-Control": "private, no-store",
                 "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",  # Disable response buffering in Nginx.
             },
         )
 
