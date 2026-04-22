@@ -278,7 +278,6 @@ def parse_dplus_payload(payload: str) -> Dict | Literal[False]:
     except:
         return False
 
-    print(data)
     return data
 
 

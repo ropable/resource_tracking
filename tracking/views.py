@@ -12,7 +12,7 @@ from django.contrib.gis.geos import LineString, Polygon
 from django.core.serializers import serialize
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse, StreamingHttpResponse
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import DetailView, ListView, TemplateView, UpdateView, View
@@ -56,7 +56,7 @@ class DeviceMap(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["page_title"] = "DBCA Resource Tracking device map"
-        context["javascript_context"] = JAVASCRIPT_CONTEXT
+        context["javascript_context"] = JAVASCRIPT_CONTEXT.copy()
         context["javascript_context"]["device_list_url"] = reverse("tracking:device_list")
         context["javascript_context"]["device_map_url"] = reverse("tracking:device_map")
         context["javascript_context"]["device_geojson_url"] = reverse("tracking:device_download")
@@ -87,8 +87,11 @@ class DeviceList(ListView):
 
         # Optional filter to limit devices to those seen within the last n days.
         if self.request.GET.get("days", None):
-            days = int(self.request.GET["days"])
-            qs = qs.filter(seen__gte=timezone.now() - timedelta(days=days))
+            try:
+                days = int(self.request.GET["days"])
+                qs = qs.filter(seen__gte=timezone.now() - timedelta(days=days))
+            except ValueError:
+                pass
 
         # Querying on device callsign, registration and/or device ID.
         if self.request.GET.get("q", None):
@@ -130,9 +133,9 @@ class DeviceDetail(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        obj = self.get_object()
+        obj = self.object
         context["page_title"] = f"DBCA Resource Tracking device {obj.deviceid}"
-        context["javascript_context"] = JAVASCRIPT_CONTEXT
+        context["javascript_context"] = JAVASCRIPT_CONTEXT.copy()
         context["javascript_context"]["device_list_url"] = reverse("tracking:device_list")
         context["javascript_context"]["device_map_url"] = reverse("tracking:device_map")
         context["javascript_context"]["device_geojson_url"] = reverse("tracking:device_download")
@@ -148,30 +151,27 @@ class DeviceUpdate(UpdateView):
 
     def dispatch(self, request, *args, **kwargs):
         """User authorisation checks occur here."""
-        obj = self.get_object()
+        self.object = self.get_object()
         # Check user authorisation (user has the required group and/or is a superuser).
         if not request.user.groups.filter(name=settings.DEVICE_EDITOR_USER_GROUP).exists() and not request.user.is_superuser:
-            return HttpResponseForbidden(f"User updates to tracking device ID {obj.deviceid} are unauthorised.")
+            return HttpResponseForbidden(f"User updates to tracking device ID {self.object.deviceid} are unauthorised.")
         # Check that the instance is user-editable (business rules on Device model).
-        if not obj.user_editable():
-            return HttpResponseForbidden(f"User updates to tracking device ID {obj.deviceid} are unauthorised.")
+        if not self.object.user_editable():
+            return HttpResponseForbidden(f"User updates to tracking device ID {self.object.deviceid} are unauthorised.")
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        obj = self.get_object()
-        context["page_title"] = f"Update DBCA tracking device {obj.deviceid}"
+        context["page_title"] = f"Update DBCA tracking device {self.object.deviceid}"
         return context
 
     def get_initial(self):
         initial = super().get_initial()
-        obj = self.get_object()
-        initial["last_seen"] = obj.seen.strftime("%d/%b/%Y %H:%M:%S %Z")
+        initial["last_seen"] = self.object.seen.strftime("%d/%b/%Y %H:%M:%S %Z")
         return initial
 
     def get_success_url(self):
-        obj = self.get_object()
-        return reverse("tracking:device_detail", kwargs={"pk": obj.pk})
+        return reverse("tracking:device_detail", kwargs={"pk": self.object.pk})
 
     def post(self, request, *args, **kwargs):
         if request.POST.get("cancel", None):
@@ -260,12 +260,12 @@ class SpatialDataView(View):
                     ]
                 )
             out.seek(0)
-            timestamp = datetime.strftime(datetime.today(), "%Y-%m-%d_%H%M")
+            timestamp = timezone.now().strftime("%Y-%m-%d_%H%M")
             filename = f"{filename_prefix}_{timestamp}.csv"
             response = HttpResponse(
                 out,
                 content_type="text/csv",
-                headers={"Content-Disposition": f"attachment; filename={filename}"},
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
             )
         # GeoJSON format download (default).
         else:
@@ -291,12 +291,12 @@ class SpatialDataView(View):
                 ),
             )
 
-            timestamp = datetime.strftime(datetime.today(), "%Y-%m-%d_%H%M")
+            timestamp = timezone.now().strftime("%Y-%m-%d_%H%M")
             filename = f"{filename_prefix}_{timestamp}.json"
             response = HttpResponse(
                 geojson,
                 content_type="application/vnd.geo+json",
-                headers={"Content-Disposition": f"attachment; filename={filename}"},
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
             )
 
         return response
@@ -321,8 +321,11 @@ class DeviceDownload(SpatialDataView):
 
         # Optional filter to limit devices to those seen within the last n days.
         if self.request.GET.get("days", None):
-            days = int(self.request.GET["days"])
-            qs = qs.filter(seen__gte=timezone.now() - timedelta(days=days))
+            try:
+                days = int(self.request.GET["days"])
+                qs = qs.filter(seen__gte=timezone.now() - timedelta(days=days))
+            except ValueError:
+                pass
 
         # Optional filter to limit devices seen within a given bounding box.
         # Expects a bbox param in the format <NE lat>,<NE lng>,<SW lat>,<SW lng>
@@ -356,7 +359,7 @@ class DeviceDownload(SpatialDataView):
         if self.format == "gpkg" or request.GET.get("format", None) == "gpkg":
             qs = self.get_queryset()
             content = self.generate_gpkg(qs)
-            timestamp = datetime.strftime(datetime.today(), "%Y-%m-%d_%H%M")
+            timestamp = timezone.now().strftime("%Y-%m-%d_%H%M")
             filename = f"{self.get_filename_prefix()}_{timestamp}.gpkg"
             resp = HttpResponse(content, content_type="application/x-sqlite3")
             resp["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -465,9 +468,7 @@ class DeviceLoggedPointDownload(SpatialDataView):
         return super().dispatch(*args, **kwargs)
 
     def get_device(self):
-        if not Device.objects.filter(pk=self.kwargs["pk"]).exists():
-            return HttpResponseBadRequest("Unknown device")
-        return Device.objects.get(pk=self.kwargs["pk"])
+        return get_object_or_404(Device, pk=self.kwargs["pk"])
 
     def get_filename_prefix(self):
         device = self.get_device()
@@ -490,8 +491,8 @@ class DeviceLoggedPointDownload(SpatialDataView):
             try:
                 # Parse the start date as ISO8601 date format
                 start = datetime.fromisoformat(start)
-            except:
-                return HttpResponseBadRequest("Bad start format, use ISO 8601 format start parameter")
+            except ValueError:
+                raise ValueError("Bad start format, use ISO 8601 format start parameter")
         qs = qs.filter(seen__gte=start)
 
         end = self.request.GET.get("end", default=None)
@@ -499,21 +500,24 @@ class DeviceLoggedPointDownload(SpatialDataView):
             try:
                 # Parse the end date as ISO8601 date format
                 end = datetime.fromisoformat(end)
-            except:
-                return HttpResponseBadRequest("Bad end format, use ISO 8601 format end parameter")
+            except ValueError:
+                raise ValueError("Bad end format, use ISO 8601 format end parameter")
 
             qs = qs.filter(seen__lt=end)
 
         return qs
 
     def get(self, request, *args, **kwargs):
-        qs = self.get_queryset()
+        try:
+            qs = self.get_queryset()
+        except ValueError as e:
+            return HttpResponseBadRequest(str(e))
         filename_prefix = self.get_filename_prefix()
 
         # GPKG format download.
         if self.format == "gpkg" or request.GET.get("format", None) == "gpkg":
             content = self.generate_gpkg(qs)
-            timestamp = datetime.strftime(datetime.today(), "%Y-%m-%d_%H%M")
+            timestamp = timezone.now().strftime("%Y-%m-%d_%H%M")
             filename = f"{filename_prefix}_{timestamp}.gpkg"
             resp = HttpResponse(content, content_type="application/x-sqlite3")
             resp["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -537,12 +541,12 @@ class DeviceLoggedPointDownload(SpatialDataView):
                     ]
                 )
             out.seek(0)  # Set the file pointer back to the start or the response is empty.
-            timestamp = datetime.strftime(datetime.today(), "%Y-%m-%d_%H%M")
+            timestamp = timezone.now().strftime("%Y-%m-%d_%H%M")
             filename = f"{filename_prefix}_{timestamp}.csv"
             response = HttpResponse(
                 out,
                 content_type="text/csv",
-                headers={"Content-Disposition": f"attachment; filename={filename}"},
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
             )
         # GeoJSON format download (default).
         else:
@@ -559,12 +563,12 @@ class DeviceLoggedPointDownload(SpatialDataView):
                 properties=("deviceid", "registration", "heading", "velocity", "altitude", "seen"),
             )
 
-            timestamp = datetime.strftime(datetime.today(), "%Y-%m-%d_%H%M")
+            timestamp = timezone.now().strftime("%Y-%m-%d_%H%M")
             filename = f"{filename_prefix}_{timestamp}.json"
             response = HttpResponse(
                 geojson,
                 content_type="application/vnd.geo+json",
-                headers={"Content-Disposition": f"attachment; filename={filename}"},
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
             )
 
         return response
@@ -622,8 +626,8 @@ class DeviceLoggedPointDownload(SpatialDataView):
         conn.close()
 
         # Return the GPKG content.
-        resp = open(gpkg_path, "rb").read()
-        return resp
+        with open(gpkg_path, "rb") as f:
+            return f.read()
 
 
 class DeviceRouteDownload(DeviceLoggedPointDownload):
@@ -633,7 +637,10 @@ class DeviceRouteDownload(DeviceLoggedPointDownload):
 
     def get(self, request, *args, **kwargs):
         """Override this method to return a linestring dataset instead of points."""
-        qs = self.get_queryset()
+        try:
+            qs = self.get_queryset()
+        except ValueError as e:
+            return HttpResponseBadRequest(str(e))
         device = self.get_device()
         filename_prefix = f"{device.deviceid}_route"
         start_point = None
@@ -659,7 +666,7 @@ class DeviceRouteDownload(DeviceLoggedPointDownload):
 
         if self.format == "gpkg" or request.GET.get("format", None) == "gpkg":
             content = self.generate_gpkg(qs)
-            timestamp = datetime.strftime(datetime.today(), "%Y-%m-%d_%H%M")
+            timestamp = timezone.now().strftime("%Y-%m-%d_%H%M")
             filename = f"{filename_prefix}_{timestamp}.gpkg"
             response = HttpResponse(content, content_type="application/x-sqlite3")
             response["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -685,12 +692,12 @@ class DeviceRouteDownload(DeviceLoggedPointDownload):
                     "label",
                 ),
             )
-            timestamp = datetime.strftime(datetime.today(), "%Y-%m-%d_%H%M")
+            timestamp = timezone.now().strftime("%Y-%m-%d_%H%M")
             filename = f"{filename_prefix}_{timestamp}.json"
             response = HttpResponse(
                 geojson,
                 content_type="application/vnd.geo+json",
-                headers={"Content-Disposition": f"attachment; filename={filename}"},
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
             )
             return response
 
@@ -784,7 +791,7 @@ class DeviceStream(View):
                         "age_text": device.age_text,
                     }
                 ).decode("utf-8")
-            except:
+            except Exception:
                 data = {}
 
             # Only send a message event if the device location has changed.

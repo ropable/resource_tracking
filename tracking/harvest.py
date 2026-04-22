@@ -1,10 +1,11 @@
-import csv
 import logging
 from email.message import EmailMessage
 from imaplib import IMAP4
+from io import BytesIO
 from typing import Literal
 
 import requests
+import unicodecsv as csv
 from django.conf import settings
 from django.utils import timezone
 
@@ -462,10 +463,9 @@ def save_tracplus_feed():
         LOGGER.warning("TracPlus API returned HTTP 429 Too Many Requests")
         return
 
-    content = resp.content.decode("utf-8")
-    # Split the content body on newline boundaries.
-    lines = content.splitlines()
-    latest = list(csv.DictReader(lines))
+    # Pass raw bytes via BytesIO to unicodecsv.DictReader — unicodecsv expects a bytes-iterable
+    # and handles decoding internally.
+    latest = list(csv.DictReader(BytesIO(resp.content)))
     LOGGER.info(f"{len(latest)} records downloaded, processing")
 
     created_device = 0
@@ -558,7 +558,7 @@ def save_tracertrak_feed():
 
     # Parse the API response.
     try:
-        features = resp.json()["features"]
+        features = resp.json(cls=SanitizingJSONDecoder)["features"]
     except requests.models.JSONDecodeError as err:
         LOGGER.warning(f"Error parsing TracerTrak API response: {err.doc}")
         return
@@ -574,7 +574,7 @@ def save_tracertrak_feed():
         data = parse_tracertrak_feature(feature)
 
         if not data:
-            LOGGER.warning(f"Unable to parse TracerTrak feature: {feature['deviceID']}")
+            LOGGER.warning(f"Unable to parse TracerTrak feature: {feature.get('id', 'unknown')}")
             skipped_device += 1
             continue
 
@@ -645,7 +645,7 @@ def save_netstar_feed():
 
     # Parse the API response.
     try:
-        vehicles = resp.json()["Vehicles"]
+        vehicles = resp.json(cls=SanitizingJSONDecoder)["Vehicles"]
     except requests.models.JSONDecodeError as err:
         LOGGER.warning(f"Error parsing Netstar API response: {err.doc}")
         return
