@@ -30,7 +30,7 @@ dependencies = [
   "crispy-bootstrap5==2026.3",
   "h11==0.16",
   "django-tastypie==0.15.1",
-  "fudgeo==1.5.7",
+  "fudgeo==1.5.9",
   "uvloop==0.22.1",
 ]
 
