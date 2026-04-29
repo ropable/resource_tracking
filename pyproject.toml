@@ -30,12 +30,12 @@ dependencies = [
   "crispy-bootstrap5==2026.3",
   "h11==0.16",
   "django-tastypie==0.15.1",
-  "fudgeo==1.5.7",
+  "fudgeo==1.5.9",
   "uvloop==0.22.1",
 ]
 
 [dependency-groups]
-dev = ["ipython>=9.12.0", "ipdb>=0.13.13", "mixer>=7.2.2", "pre-commit>=4.6.0"]
+dev = ["ipython>=9.13.0", "ipdb>=0.13.13", "mixer>=7.2.2", "pre-commit>=4.6.0"]
 
 [project.urls]
 homepage = "https://github.com/dbca-wa/resource_tracking"
