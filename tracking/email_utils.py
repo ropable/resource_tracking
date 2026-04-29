@@ -85,7 +85,7 @@ def email_mark_unread(imap, uid) -> Tuple[Optional[str], Optional[str]] | Litera
 def email_delete(imap, uid) -> Tuple[Optional[str], Optional[str]] | Literal[False]:
     """Flag an email for deletion."""
     try:
-        status, response = imap.store(str(uid), "+FLAGS", r"(\Deleted)")
+        status, response = imap.store(str(uid), "+FLAGS", r"\Deleted")
         return status, response
     except (IMAP4_SSL.abort, IMAP4_SSL.error) as err:
         LOGGER.warning(f"Unable to delete email: {err}")
