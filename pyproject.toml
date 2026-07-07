@@ -28,7 +28,7 @@ dependencies = [
   "crispy-bootstrap5==2026.3",
   "h11==0.16",
   "django-tastypie==0.15.1",
-  "fudgeo==1.5.9",
+  "fudgeo==1.5.10",
   "uvloop==0.22.1",
   "psycopg[binary]==3.3.4",
   "requests==2.34.2",
