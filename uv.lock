@@ -189,15 +189,17 @@ wheels = [
 
 [[package]]
 name = "dbca-utils"
-version = "3.0.7"
+version = "3.0.12"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "django" },
     { name = "markupsafe" },
+    { name = "psutil" },
+    { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/45/84/6fb8cafed87e2b8a9fd9c377f1ccae47330e1fbebffd1d40313383659fbf/dbca_utils-3.0.7.tar.gz", hash = "sha256:d297aba5839fae17afd513124d08490eb322f2aa03b58fb587561ace221a5523", size = 22119, upload-time = "2026-07-03T04:24:11.941Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/2e/b17ac18a763c5afcfde42e2a5c83614b341803d62f8d7b195fcbcdbb0df6/dbca_utils-3.0.12.tar.gz", hash = "sha256:30a4f7fbdee88619e4381a141906c68e6e33770c071e416874be82863399e8e0", size = 26571, upload-time = "2026-07-28T06:02:03.174Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/e3/6778db549c87e882091382268f57bf5e579cb7aa8cba149151264b561f1f/dbca_utils-3.0.7-py3-none-any.whl", hash = "sha256:77baec7ef55b0fb6fcebe91668b8d7e308c264a138461a571d666929e934b5ca", size = 19891, upload-time = "2026-07-03T04:24:10.905Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/50/ecfc0295325c528c1bb963878aedbdf1c867844408b1d95cf1a6be0b4c00/dbca_utils-3.0.12-py3-none-any.whl", hash = "sha256:22bade5a4dce9631c711eff2f2488ab27ce59b2fe4a8955d2305dd14df0c9b07", size = 23124, upload-time = "2026-07-28T06:02:02.24Z" },
 ]
 
 [[package]]
@@ -968,7 +970,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "crispy-bootstrap5", specifier = "==2026.3" },
-    { name = "dbca-utils", specifier = "==3.0.7" },
+    { name = "dbca-utils", specifier = "==3.0.12" },
     { name = "dj-database-url", specifier = "==3.1.2" },
     { name = "django", specifier = "==5.2.16" },
     { name = "django-crispy-forms", specifier = "==2.6" },
