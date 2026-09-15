@@ -4,7 +4,6 @@ name: Build multi-architecture image
 
 on:
   schedule:
-    # 0524 AWST, Mon-Fri
     - cron: '24 21 * * 1-5'
   push:
     branches:
@@ -29,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
-      image_ref: ${{ steps.scan.outputs.image_ref }}
+      image_ref: ${{ env.GHCR_IMAGE }}:${{ steps.image_tag.outputs.value }}
     permissions:
       contents: read
       packages: write # push image to GHCR
@@ -37,7 +36,7 @@ jobs:
       id-token: write # OIDC for provenance
     steps:
       - name: Harden the GitHub runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -47,7 +46,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -61,32 +60,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        with:
-          images: ${{ env.GHCR_IMAGE }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=dev,event=branch,branch=dev
-            type=semver,pattern={{version}}
-
-      - name: Set scan image ref
-        id: scan
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-        run: |
-          tag=$(printf '%s\n' "$TAGS" | awk 'NF{print; exit}')
-          echo "image_ref=$tag" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push with buildx bake
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
+      - name: Determine image tag
+        id: image_tag
+        shell: bash
         run: |
           set -euo pipefail
-          TAGS_JSON=$(printf '%s\n' "$TAGS" | awk 'NF' | jq -R . | jq -s -c .)
-          printf 'target "app" {\n  tags = %s\n}\n' "$TAGS_JSON" > /tmp/bake-tags.hcl
-          docker buildx bake --push -f docker-bake.hcl -f /tmp/bake-tags.hcl
+          tag="$(git tag --points-at HEAD | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+          if [ -n "$tag" ]; then
+            # strip a leading 'v' (e.g. v1.2.3 -> 1.2.3)
+            semtag="${tag#v}"
+            echo "value=${semtag}" >> "$GITHUB_OUTPUT"
+            echo "tags=${GHCR_IMAGE}:latest,${GHCR_IMAGE}:${semtag}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=latest" >> "$GITHUB_OUTPUT"
+            echo "tags=${GHCR_IMAGE}:latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push with Docker Buildx
+        id: bake
+        uses: docker/bake-action@d3418bd7d0e9324001bca92fa8ba175ea7e6dc9b # v7.3.0
+        with:
+          push: true
+          set: |
+            app.tags=${{ steps.image_tag.outputs.tags }}
 
   scan:
     name: Docker image vulnerability scan
@@ -113,6 +109,6 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@6f5948dfacef28e207b48d0905cf90c03365536d # v3.37.9
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           sarif_file: 'trivy-results.sarif'
