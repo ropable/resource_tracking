@@ -10,6 +10,7 @@ ARG GCC_RUNTIME_VERSION
 RUN <<EOF
 set -euxo pipefail
 apt-get update
+
 # Install the aligned GCC runtime family and dependent packages
 # in one transaction so APT cannot retain incompatible DHI revisions.
 apt-get install -y --allow-downgrades --no-install-recommends \
