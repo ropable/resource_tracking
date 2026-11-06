@@ -72,7 +72,7 @@ COPY --chown=nonroot:nonroot tracking ./tracking
 
 # Compile scripts and collect static files
 RUN <<EOF
-python -m compileall manage.py resource_tracking tracking
+python -m compileall -q manage.py resource_tracking tracking
 python manage.py collectstatic --noinput
 EOF
 
